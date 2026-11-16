@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>From Craftsmen to Curators — 3D Interactive Figures</title>
+<style>
+  :root{
+    --bg:#0a0b10; --panel:#14161f; --line:#262a38;
+    --txt:#e9eaf0; --muted:#9aa1b2; --gold:#e8b04b; --gold-soft:#f3d291;
+    --teal:#46d6c4; --blue:#5b9dff; --purple:#b388ff; --rose:#ff7a8a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1000px 600px at 50% 0%, rgba(232,176,75,.10), transparent 60%),
+      radial-gradient(800px 500px at 0% 100%, rgba(91,157,255,.08), transparent 60%), var(--bg);
+    color:var(--txt);font-family:"Inter","Segoe UI",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
+    overflow:hidden;-webkit-font-smoothing:antialiased;
+  }
+  #app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+  /* header */
+  header{padding:14px 20px 10px;text-align:center;flex:0 0 auto;position:relative;z-index:5}
+  header .kick{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:700}
+  header h1{font-family:Georgia,serif;font-size:clamp(16px,2.6vw,24px);margin:5px 0 2px;letter-spacing:.01em}
+  header h1 em{font-style:normal;color:var(--gold-soft)}
+  header .sub{font-size:11px;color:var(--muted)}
+
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+    padding:8px 16px;position:relative;z-index:5}
+  .tab{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-size:12px;padding:8px 14px;border-radius:99px;cursor:pointer;transition:.2s;font-family:inherit}
+  .tab:hover{border-color:var(--gold);color:var(--gold-soft)}
+  .tab.on{background:linear-gradient(120deg,var(--gold),var(--gold-soft));color:#1a140c;border-color:transparent;font-weight:700}
+  .lang{display:flex;gap:3px;border:1px solid var(--line);border-radius:99px;padding:3px;background:var(--panel)}
+  .lang button{appearance:none;border:0;background:transparent;color:var(--muted);font-size:11px;
+    padding:4px 10px;border-radius:99px;cursor:pointer;font-family:inherit}
+  .lang button.on{background:var(--gold);color:#1a140c;font-weight:700}
+
+  /* stage */
+  #stage{position:relative;flex:1 1 auto;min-height:0}
+  #stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #stage canvas:active{cursor:grabbing}
+  .hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:11px;
+    color:var(--muted);background:rgba(10,11,16,.7);border:1px solid var(--line);
+    padding:6px 14px;border-radius:99px;pointer-events:none;white-space:nowrap;z-index:3}
+  .scene-cap{position:absolute;left:50%;top:8px;transform:translateX(-50%);max-width:min(680px,90vw);
+    text-align:center;font-size:12px;line-height:1.6;color:var(--gold-soft);z-index:3;pointer-events:none}
+  .scene-cap b{color:var(--txt);font-family:Georgia,serif}
+
+  /* info panel */
+  .info{position:absolute;left:16px;top:16px;bottom:56px;width:min(340px,42vw);z-index:4;
+    background:rgba(20,22,31,.92);border:1px solid var(--line);border-radius:16px;
+    padding:18px 18px 16px;overflow:auto;backdrop-filter:blur(10px);
+    transform:translateX(0);transition:transform .3s ease,opacity .3s;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .info.hidden{transform:translateX(-115%);opacity:0;pointer-events:none}
+  .info .tag{display:inline-block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--gold);border:1px solid rgba(232,176,75,.35);padding:3px 9px;border-radius:99px;margin-bottom:10px}
+  .info h2{font-family:Georgia,serif;font-size:19px;margin-bottom:4px;line-height:1.3}
+  .info .sub{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .info p{font-size:12.5px;line-height:1.75;color:#d4d8e2;margin-bottom:10px}
+  .info .kv{font-size:12px;line-height:1.7;color:#c2c8d6;border-top:1px solid var(--line);padding-top:9px;margin-top:9px}
+  .info .kv b{color:var(--gold-soft);font-weight:600}
+  .info .close{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;
+    border:1px solid var(--line);background:transparent;color:var(--muted);font-size:16px;cursor:pointer;line-height:1}
+  .info .close:hover{color:var(--txt);border-color:var(--gold)}
+  .info .ask{color:var(--muted);font-size:12.5px;line-height:1.8}
+
+  /* loading */
+  #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:13px;z-index:8;background:var(--bg)}
+  #loading.err{color:var(--rose);padding:30px;text-align:center}
+
+  .foot{position:absolute;right:16px;bottom:12px;font-size:10px;color:#5f6675;z-index:3;text-align:right}
+
+  /* language display */
+  .en{display:none}.lang-en .zh{display:none}.lang-en .en{display:inline}
+
+  @media(max-width:760px){
+    .info{left:10px;right:10px;top:auto;bottom:52px;width:auto;max-height:52vh}
+    .info.hidden{transform:translateY(120%)}
+    header h1{font-size:15px}
+    .foot{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="kick">Interactive 3D · IEEE TLT 2026</div>
+    <h1><em>From Craftsmen to Curators</em></h1>
+    <div class="sub"><span class="zh">三維互動圖解 · 點擊構件查看說明 · 拖曳旋轉</span><span class="en">3D interactive figures · click a part to learn more · drag to rotate</span></div>
+  </header>
+
+  <div class="toolbar">
+    <button class="tab on" data-scene="bloom"><span class="zh">逆向布魯姆</span><span class="en">Inverted Bloom's</span></button>
+    <button class="tab" data-scene="constructs"><span class="zh">三個構念</span><span class="en">3 Constructs</span></button>
+    <button class="tab" data-scene="method"><span class="zh">方法論三角</span><span class="en">Triangulation</span></button>
+    <div class="lang"><button data-l="zh" class="on">中文</button><button data-l="en">EN</button></div>
+  </div>
+
+  <div id="stage">
+    <div id="loading"><span class="zh">載入 3D 場景…</span><span class="en">Loading 3D scene…</span></div>
+    <div class="info hidden" id="info">
+      <button class="close" id="infoClose" aria-label="close">×</button>
+      <div id="infoBody"></div>
+    </div>
+    <div class="scene-cap" id="sceneCap"></div>
+    <div class="hint"><span class="zh">拖曳旋轉 · 滾輪縮放 · 點擊構件看說明</span><span class="en">Drag to rotate · scroll to zoom · click a part for details</span></div>
+    <div class="foot">Modeled from the authors' manuscript · independent study visualization</div>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
